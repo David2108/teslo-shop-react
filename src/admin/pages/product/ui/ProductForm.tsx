@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router';
 
 import { useForm } from 'react-hook-form';
@@ -17,10 +17,16 @@ interface Props {
   isPending: boolean;
 
   // Methods
-  onSubmit: (productLike: Partial<Product>) => Promise<void>;
+  onSubmit: (
+    productLike: Partial<Product> & { files?: File[] }
+  ) => Promise<void>;
 }
 
 const availableSizes: Size[] = ['XS', 'S', 'M', 'L', 'XL', 'XXL'];
+
+interface FormInputs extends Product{
+  files?: File[]
+}
 
 export const ProductForm = ({
   title,
@@ -37,11 +43,16 @@ export const ProductForm = ({
     getValues,
     setValue,
     watch,
-  } = useForm({
+  } = useForm<FormInputs>({
     defaultValues: product,
   });
 
   const labelInputRef = useRef<HTMLInputElement>(null);
+  const [files, setFiles] = useState<File[]>([])
+
+  useEffect(() => {
+    setFiles([]);
+  }, [product]);
 
   const selectedSizes = watch('sizes');
   const selectedTags = watch('tags');
@@ -88,13 +99,23 @@ export const ProductForm = ({
     e.preventDefault();
     e.stopPropagation();
     setDragActive(false);
-    const files = e.dataTransfer.files;
-    console.log(files);
+    const filesTemp = e.dataTransfer.files;
+    console.log('Drop: ', filesTemp);
+    if (!filesTemp) return;
+    setFiles((prev) => [...prev, ...Array.from(filesTemp)]);
+
+    const currentFiles = getValues('files') || [];
+    setValue('files', [...currentFiles, ...Array.from(filesTemp)]);
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    console.log(files);
+    const filesTemp = e.target.files;
+    console.log('FileChange: ', filesTemp);
+
+    if (!filesTemp) return;
+    setFiles((prev) => [...prev, ...Array.from(filesTemp)]);
+    const currentFiles = getValues('files') || [];
+    setValue('files', [...currentFiles, ...Array.from(filesTemp)]);
   };
 
   return (
@@ -312,11 +333,10 @@ export const ProductForm = ({
                       key={size}
                       onClick={() => addSize(size)}
                       disabled={getValues('sizes').includes(size)}
-                      className={`px-3 py-1 rounded-full text-sm font-medium transition-all duration-200 ${
-                        selectedSizes.includes(size)
+                      className={`px-3 py-1 rounded-full text-sm font-medium transition-all duration-200 ${selectedSizes.includes(size)
                           ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
                           : 'bg-slate-200 text-slate-700 hover:bg-slate-300 cursor-pointer'
-                      }`}
+                        }`}
                     >
                       {size}
                     </button>
@@ -382,11 +402,10 @@ export const ProductForm = ({
 
               {/* Drag & Drop Zone */}
               <div
-                className={`relative border-2 border-dashed rounded-lg p-6 text-center transition-all duration-200 ${
-                  dragActive
+                className={`relative border-2 border-dashed rounded-lg p-6 text-center transition-all duration-200 ${dragActive
                     ? 'border-blue-400 bg-blue-50'
                     : 'border-slate-300 hover:border-slate-400'
-                }`}
+                  }`}
                 onDragEnter={handleDrag}
                 onDragLeave={handleDrag}
                 onDragOver={handleDrag}
@@ -440,6 +459,26 @@ export const ProductForm = ({
                   ))}
                 </div>
               </div>
+              {/* Imagenes por cargar*/}
+              <div className={cn('mt-6 space-y-3', {
+                hidden: files.length === 0,
+              })}>
+                <h3 className="text-sm font-medium text-slate-700">
+                  Imágenes por cargar
+                </h3>
+                <div className="grid grid-cols-2 gap-3">
+                  {
+                    files.map((file, index) => (
+                      <img
+                        src={URL.createObjectURL(file)}
+                        alt="Product"
+                        key={index}
+                        className="w-full h-full object-cover rounded-lg"
+                      />
+                    ))
+                  }
+                </div>
+              </div>
             </div>
 
             {/* Product Status */}
@@ -463,19 +502,18 @@ export const ProductForm = ({
                     Inventario
                   </span>
                   <span
-                    className={`px-2 py-1 text-xs font-medium rounded-full ${
-                      currentStock > 5
+                    className={`px-2 py-1 text-xs font-medium rounded-full ${currentStock > 5
                         ? 'bg-green-100 text-green-800'
                         : currentStock > 0
-                        ? 'bg-yellow-100 text-yellow-800'
-                        : 'bg-red-100 text-red-800'
-                    }`}
+                          ? 'bg-yellow-100 text-yellow-800'
+                          : 'bg-red-100 text-red-800'
+                      }`}
                   >
                     {currentStock > 5
                       ? 'En stock'
                       : currentStock > 0
-                      ? 'Bajo stock'
-                      : 'Sin stock'}
+                        ? 'Bajo stock'
+                        : 'Sin stock'}
                   </span>
                 </div>
 
